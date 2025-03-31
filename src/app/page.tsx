@@ -20,7 +20,7 @@ export default function Home() {
                 Simple • Fast • Accurate
               </div>
               <h1 className="text-4xl md:text-5xl font-bold mb-6 bg-clip-text text-transparent bg-gradient-to-r from-blue-600 to-indigo-600">
-                PDF to XML Converter
+                ParseFlow
               </h1>
               <p className="text-lg text-gray-600 mb-8 leading-relaxed">
                 Transform your PDF documents into structured XML format with precision. 

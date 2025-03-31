@@ -14,7 +14,7 @@ export default function MultiPageXmlViewer({ conversion, onDelete }: MultiPageXm
   const [parsedXml, setParsedXml] = useState<Document | null>(null);
   const [currentPage, setCurrentPage] = useState(1);
   const [totalPages, setTotalPages] = useState(0);
-  const [displayMode, setDisplayMode] = useState<'structured' | 'raw'>('structured');
+  const [displayMode, setDisplayMode] = useState<'structured' | 'raw' | 'xml'>('structured');
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false); 
 
   useEffect(() => {
@@ -58,12 +58,18 @@ export default function MultiPageXmlViewer({ conversion, onDelete }: MultiPageXm
   }
 
   const handleCopy = () => {
+    if (!conversion) return;
+    
+    // Use the full XML content from the conversion object
     navigator.clipboard.writeText(conversion.xmlContent);
     setIsCopied(true);
     setTimeout(() => setIsCopied(false), 2000);
   };
 
   const handleDownload = () => {
+    if (!conversion) return;
+    
+    // Use the full XML content from the conversion object
     const blob = new Blob([conversion.xmlContent], { type: "text/xml" });
     const url = URL.createObjectURL(blob);
     const a = document.createElement("a");
@@ -116,7 +122,18 @@ export default function MultiPageXmlViewer({ conversion, onDelete }: MultiPageXm
       </div>
     );
     
-    if (displayMode === 'raw') {
+    if (displayMode === 'xml') {
+      // Display the actual XML markup for the current page
+      const serializer = new XMLSerializer();
+      const pageXml = serializer.serializeToString(page);
+      const formattedXml = formatXml(pageXml);
+      
+      return (
+        <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 overflow-auto">
+          <pre className="whitespace-pre-wrap text-sm text-gray-800 font-mono">{formattedXml}</pre>
+        </div>
+      );
+    } else if (displayMode === 'raw') {
       const rawContent = page.querySelector('rawContent')?.textContent || '';
       return (
         <div className="bg-gray-50 rounded-lg p-4 border border-gray-200 overflow-auto">
@@ -151,6 +168,29 @@ export default function MultiPageXmlViewer({ conversion, onDelete }: MultiPageXm
         ))}
       </div>
     );
+  };
+
+  // Function to format XML with indentation for better readability
+  const formatXml = (xml: string): string => {
+    let formatted = '';
+    let indent = '';
+    const tab = '  ';
+    
+    xml.split(/>\s*</).forEach(node => {
+      if (node.match(/^\/\w/)) {
+        // Closing tag
+        indent = indent.substring(tab.length);
+      }
+      
+      formatted += indent + '<' + node + '>\n';
+      
+      if (node.match(/^<?\w[^>]*[^\/]$/) && !node.startsWith("!--")) {
+        // Opening tag
+        indent += tab;
+      }
+    });
+    
+    return formatted.substring(1, formatted.length - 2).replace(/&lt;/g, '<').replace(/&gt;/g, '>');
   };
 
   return (
@@ -202,21 +242,21 @@ export default function MultiPageXmlViewer({ conversion, onDelete }: MultiPageXm
             <button
               type="button"
               onClick={() => setDisplayMode('structured')}
-              className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-l-md ${
+              className={`inline-flex items-center px-4 py-2 text-sm font-medium ${
                 displayMode === 'structured'
                   ? 'bg-blue-50 text-blue-700 border border-blue-300'
                   : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
-              }`}
+              } ${displayMode === 'structured' ? 'rounded-l-md' : displayMode === 'raw' ? '' : 'rounded-l-md'}`}
             >
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 10h16M4 14h16M4 18h16" />
               </svg>
-              Structured
+              PDF Content
             </button>
             <button
               type="button"
               onClick={() => setDisplayMode('raw')}
-              className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-r-md ${
+              className={`inline-flex items-center px-4 py-2 text-sm font-medium ${
                 displayMode === 'raw'
                   ? 'bg-blue-50 text-blue-700 border border-blue-300'
                   : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
@@ -226,6 +266,20 @@ export default function MultiPageXmlViewer({ conversion, onDelete }: MultiPageXm
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 20l4-16m4 4l4 4-4 4M6 16l-4-4 4-4" />
               </svg>
               Raw Text
+            </button>
+            <button
+              type="button"
+              onClick={() => setDisplayMode('xml')}
+              className={`inline-flex items-center px-4 py-2 text-sm font-medium rounded-r-md ${
+                displayMode === 'xml'
+                  ? 'bg-blue-50 text-blue-700 border border-blue-300'
+                  : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+              }`}
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 mr-2" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 9l3 3-3 3m5 0h3M5 20h14a2 2 0 002-2V6a2 2 0 00-2-2H5a2 2 0 00-2 2v12a2 2 0 002 2z" />
+              </svg>
+              XML Markup
             </button>
           </div>
           

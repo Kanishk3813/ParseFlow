@@ -4,14 +4,26 @@ import { collection, addDoc, query, where, getDocs, orderBy, Timestamp, doc, del
 import { db } from "../firebase/config";
 import { Conversion } from "../types";
 
+// Define type for pdf.js
 let pdfjsLib: any = null;
+
+// Create a declaration for the worker module
+declare module 'pdfjs-dist/build/pdf.worker.entry';
 
 const initPdfjs = async () => {
   if (typeof window === 'undefined') return null;
   
   if (!pdfjsLib) {
-    const pdfjs = await import('pdfjs-dist/webpack');
-    pdfjsLib = pdfjs.default || pdfjs;
+    try {
+      const pdfjs = await import('pdfjs-dist');
+      pdfjsLib = pdfjs;
+      
+      // Set worker path using CDN to avoid TypeScript issues
+      pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
+    } catch (error) {
+      console.error("Error initializing PDF.js:", error);
+      throw new Error("Failed to initialize PDF processing library.");
+    }
   }
   
   return pdfjsLib;
@@ -47,58 +59,159 @@ export const convertPdfToXml = async (file: File): Promise<string> => {
     for (let i = 1; i <= numPages; i++) {
       const page = await pdf.getPage(i);
       const textContent = await page.getTextContent();
-      
       const viewport = page.getViewport({ scale: 1.0 });
       
+      // Extract text elements and their positions
+      const textItems = textContent.items.map((item: any) => {
+        // Transform coordinates using PDF.js utilities if available
+        let x = item.transform[4] || 0;
+        let y = item.transform[5] || 0;
+        
+        // With viewport transformation
+        if (pdfjs.Util && pdfjs.Util.transform) {
+          const tx = pdfjs.Util.transform(
+            pdfjs.Util.transform(viewport.transform, item.transform),
+            [1, 0, 0, -1, 0, 0]
+          );
+          x = tx[4];
+          y = viewport.height - tx[5]; // Invert y-coordinate
+        }
+        
+        return {
+          text: item.str,
+          x: x,
+          y: y,
+          width: item.width || 0,
+          height: item.height || 0,
+          fontName: item.fontName,
+          hasEOL: item.hasEOL || false
+        };
+      });
+      
+      // Sort items by position (top to bottom, left to right)
+      const sortedItems = textItems.sort((a: any, b: any) => {
+        const yDiff = Math.abs(a.y - b.y);
+        // Items on same line (with small threshold)
+        if (yDiff < 5) {
+          return a.x - b.x; // Sort by x position
+        }
+        return a.y - b.y; // Sort by y position
+      });
+      
+      // Group items into lines based on y-position
+      const lines: any[] = [];
+      let currentLine: any[] = [];
       let lastY: number | null = null;
-      let currentParagraph: string[] = [];
-      let paragraphs: string[] = [];
-      let headers: { text: string, level: number }[] = [];
       
-      const sortedItems = textContent.items.sort((a: any, b: any) => 
-        b.transform[5] - a.transform[5]
-      );
+      sortedItems.forEach((item: any) => {
+        if (lastY === null || Math.abs(item.y - lastY) < 5) {
+          // Same line
+          currentLine.push(item);
+        } else {
+          // New line
+          if (currentLine.length > 0) {
+            // Sort items within the line by x position
+            currentLine.sort((a, b) => a.x - b.x);
+            lines.push([...currentLine]);
+          }
+          currentLine = [item];
+        }
+        lastY = item.y;
+      });
       
+      if (currentLine.length > 0) {
+        // Sort final line by x position
+        currentLine.sort((a, b) => a.x - b.x);
+        lines.push(currentLine);
+      }
+      
+      // Process lines into paragraphs and headers
+      const paragraphs: string[] = [];
+      const headers: { text: string, level: number }[] = [];
+      
+      // Calculate font size statistics for header detection
       const fontSizes = sortedItems
-        .map((item: any) => item.height || 0)
+        .map((item: any) => item.height)
         .filter((size: number) => size > 0);
       
       const avgFontSize = fontSizes.reduce((sum: number, size: number) => sum + size, 0) / 
         (fontSizes.length || 1);
       
-      for (let j = 0; j < sortedItems.length; j++) {
-        const item: any = sortedItems[j];
-        const fontSize = item.height || 0;
-        const text = item.str.trim();
+      // Identify largest font sizes for headers
+      const sortedFontSizes = [...fontSizes].sort((a, b) => b - a);
+      const topFontSizes = sortedFontSizes.slice(0, Math.min(10, sortedFontSizes.length));
+      
+      // Create a threshold for headers
+      const h1Threshold = avgFontSize * 1.5;
+      const h2Threshold = avgFontSize * 1.2;
+      
+      let currentParagraph: string[] = [];
+      let inParagraph = false;
+      
+      // Process lines into logical text blocks
+      for (let j = 0; j < lines.length; j++) {
+        const line = lines[j];
+        const lineText = line.map((item: any) => item.text).join(' ').trim();
         
-        if (!text) continue;
+        if (!lineText) continue;
         
-        const isHeader = fontSize > avgFontSize * 1.2;
-        
-        const isNewParagraph = lastY !== null && 
-          Math.abs(lastY - item.transform[5]) > 12;
-        
-        if (isNewParagraph && currentParagraph.length > 0) {
-          paragraphs.push(currentParagraph.join(' '));
-          currentParagraph = [];
-        }
+        // Check if this is a header by examining the largest font in the line
+        const largestFont = Math.max(...line.map((item: any) => item.height));
+        const isHeader = largestFont > h2Threshold;
         
         if (isHeader) {
-          const level = fontSize > avgFontSize * 1.5 ? 1 : 
-                         fontSize > avgFontSize * 1.3 ? 2 : 3;
-                         
-          headers.push({ text, level });
+          // If we were building a paragraph, save it
+          if (currentParagraph.length > 0) {
+            paragraphs.push(currentParagraph.join(' '));
+            currentParagraph = [];
+          }
+          
+          const level = largestFont > h1Threshold ? 1 : 2;
+          headers.push({ text: lineText, level });
+          inParagraph = false;
         } else {
-          currentParagraph.push(text);
+          // Check if this is a new paragraph or continuation
+          const nextLine = j + 1 < lines.length ? lines[j + 1] : null;
+          const isListItem = lineText.match(/^[\s•\-\*\d]+[.)]\s/);
+          const isPossibleListItem = lineText.match(/^[⚫•◦○♦⬤▪▫◆◇■□●○]\s/) ||
+                                    lineText.match(/^[\s]*[\d]+[.)]\s/);
+          
+          // Handle bullet points and numbered lists appropriately
+          if (isListItem || isPossibleListItem) {
+            if (currentParagraph.length > 0) {
+              paragraphs.push(currentParagraph.join(' '));
+              currentParagraph = [];
+            }
+            paragraphs.push(lineText);
+            inParagraph = false;
+          } else if (
+            lineText.length < 5 || // Very short lines are likely not paragraphs
+            lineText.match(/^[A-Z][a-z]*:/) || // Field labels
+            (nextLine && Math.abs(line[0].y - nextLine[0].y) > avgFontSize * 1.5) // Check spacing to next line
+          ) {
+            // This is likely a standalone line or the end of a paragraph
+            if (currentParagraph.length > 0) {
+              currentParagraph.push(lineText);
+              paragraphs.push(currentParagraph.join(' '));
+              currentParagraph = [];
+            } else {
+              paragraphs.push(lineText);
+            }
+            inParagraph = false;
+          } else {
+            // This is part of a paragraph
+            currentParagraph.push(lineText);
+            inParagraph = true;
+          }
         }
-        
-        lastY = item.transform[5];
       }
       
+      // Add any remaining paragraph content
       if (currentParagraph.length > 0) {
         paragraphs.push(currentParagraph.join(' '));
       }
-
+      
+      // Build XML for the page
       let pageXml = `<page number="${i}">`;
       
       if (headers.length > 0) {
@@ -111,13 +224,28 @@ export const convertPdfToXml = async (file: File): Promise<string> => {
       
       pageXml += `<paragraphs>`;
       paragraphs.forEach(paragraph => {
-        pageXml += `<p>${escapeXml(paragraph)}</p>`;
+        // Clean up the paragraph text
+        const cleanedParagraph = paragraph
+          .replace(/\s+/g, ' ')  // Normalize whitespace
+          .replace(/[\u2028\u2029]/g, ' ')  // Replace line separators
+          .replace(/[^\x20-\x7E\u00A0-\u00FF\u0100-\u017F\u0180-\u024F]/g, ' ') // Remove problematic Unicode chars
+          .trim();
+          
+        if (cleanedParagraph) {
+          pageXml += `<p>${escapeXml(cleanedParagraph)}</p>`;
+        }
       });
       pageXml += `</paragraphs>`;
       
-      pageXml += `<rawContent><![CDATA[${
-        sortedItems.map((item: any) => item.str).join(' ').replace(/]]>/g, ']]&gt;')
-      }]]></rawContent>`;
+      // Include raw content in a clean format
+      const rawContent = sortedItems
+        .map((item: any) => item.text)
+        .join(' ')
+        .replace(/\s+/g, ' ')
+        .replace(/]]>/g, ']]&gt;')
+        .trim();
+      
+      pageXml += `<rawContent><![CDATA[${rawContent}]]></rawContent>`;
       
       pageXml += `</page>`;
       allPageContents.push(pageXml);
@@ -132,6 +260,7 @@ export const convertPdfToXml = async (file: File): Promise<string> => {
         .replace(/'/g, '&apos;');
     }
     
+    // Construct full XML document
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <document>
   <info>
@@ -141,9 +270,10 @@ export const convertPdfToXml = async (file: File): Promise<string> => {
     <author>${escapeXml(info.Author || 'Unknown')}</author>
     <creator>${escapeXml(info.Creator || 'Unknown')}</creator>
     <producer>${escapeXml(info.Producer || 'Unknown')}</producer>
+    <conversionDate>${new Date().toISOString()}</conversionDate>
   </info>
   <content>
-    ${allPageContents.join('\n')}
+    ${allPageContents.join('\n    ')}
   </content>
 </document>`;
     
@@ -151,6 +281,35 @@ export const convertPdfToXml = async (file: File): Promise<string> => {
   } catch (error) {
     console.error("Error parsing PDF:", error);
     throw new Error("Failed to parse PDF. Please try again with a different file.");
+  }
+};
+
+// Helper function to export the full XML to a file
+export const downloadXmlFile = (xmlContent: string, fileName: string): void => {
+  const blob = new Blob([xmlContent], { type: 'application/xml' });
+  const url = URL.createObjectURL(blob);
+  
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = fileName.replace(/\.[^/.]+$/, '') + '.xml';
+  document.body.appendChild(a);
+  a.click();
+  
+  // Clean up
+  setTimeout(() => {
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+  }, 0);
+};
+
+// Helper function to copy full XML to clipboard
+export const copyXmlToClipboard = async (xmlContent: string): Promise<boolean> => {
+  try {
+    await navigator.clipboard.writeText(xmlContent);
+    return true;
+  } catch (error) {
+    console.error("Error copying to clipboard:", error);
+    return false;
   }
 };
 

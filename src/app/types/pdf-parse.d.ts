@@ -1,4 +1,5 @@
 // src/app/types/pdf-parse.d.ts
+declare module 'pdfjs-dist/build/pdf.worker.entry';
 
 declare module 'pdfjs-dist/webpack' {
     const pdfjs: any;

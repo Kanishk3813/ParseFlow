@@ -18,6 +18,8 @@ export default function HistorySection({ refreshTrigger, onConversionComplete }:
   const [error, setError] = useState("");
   const [selectedConversion, setSelectedConversion] = useState<Conversion | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [displayMode, setDisplayMode] = useState<'pdf' | 'xml'>('xml');
+  const [parsedXml, setParsedXml] = useState<Document | null>(null);
 
   useEffect(() => {
     const fetchConversions = async () => {
@@ -39,6 +41,21 @@ export default function HistorySection({ refreshTrigger, onConversionComplete }:
 
     fetchConversions();
   }, [user, refreshTrigger]);
+
+  useEffect(() => {
+    if (selectedConversion?.xmlContent) {
+      try {
+        const parser = new DOMParser();
+        const xmlDoc = parser.parseFromString(selectedConversion.xmlContent, "text/xml");
+        setParsedXml(xmlDoc);
+      } catch (error) {
+        console.error("Failed to parse XML:", error);
+        setParsedXml(null);
+      }
+    } else {
+      setParsedXml(null);
+    }
+  }, [selectedConversion]);
 
   const handleDelete = async (id: string) => {
     if (!id) return;
@@ -83,6 +100,55 @@ export default function HistorySection({ refreshTrigger, onConversionComplete }:
     a.click();
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
+  };
+
+  // Function to extract PDF text content
+  const extractPdfContent = (xmlDoc: Document | null): string => {
+    if (!xmlDoc) return "No content available";
+    
+    const pages = xmlDoc.querySelectorAll('page');
+    let content = '';
+    
+    pages.forEach((page, pageIndex) => {
+      content += `\n--- Page ${pageIndex + 1} ---\n\n`;
+      
+      // Extract headers
+      const headers = page.querySelectorAll('headers h1, headers h2, headers h3');
+      headers.forEach(header => {
+        content += `${header.nodeName}: ${header.textContent}\n`;
+      });
+      
+      // Extract paragraphs
+      const paragraphs = page.querySelectorAll('paragraphs p');
+      paragraphs.forEach(para => {
+        content += `${para.textContent}\n\n`;
+      });
+    });
+    
+    return content || "No content extracted";
+  };
+
+  // Function to format XML with indentation
+  const formatXml = (xml: string): string => {
+    let formatted = '';
+    let indent = '';
+    const tab = '  ';
+    
+    xml.split(/>\s*</).forEach(node => {
+      if (node.match(/^\/\w/)) {
+        // Closing tag
+        indent = indent.substring(tab.length);
+      }
+      
+      formatted += indent + '<' + node + '>\n';
+      
+      if (node.match(/^<?\w[^>]*[^\/]$/) && !node.startsWith("!--")) {
+        // Opening tag
+        indent += tab;
+      }
+    });
+    
+    return formatted.substring(1, formatted.length - 2).replace(/&lt;/g, '<').replace(/&gt;/g, '>');
   };
 
   if (loading) {
@@ -160,38 +226,73 @@ export default function HistorySection({ refreshTrigger, onConversionComplete }:
       <div className="md:col-span-2">
         {selectedConversion ? (
           <div className="bg-white rounded-lg shadow-md overflow-hidden">
-            <div className="p-4 border-b flex justify-between items-center">
+            <div className="p-4 border-b flex justify-between items-center flex-wrap gap-2">
               <h2 className="text-xl font-bold truncate flex-1" title={selectedConversion.fileName}>
                 {selectedConversion.fileName}
               </h2>
-              <div className="space-x-2">
-                <button
-                  onClick={handleCopy}
-                  className="px-3 py-1 bg-blue-500 text-white rounded hover:bg-blue-600"
-                >
-                  Copy
-                </button>
-                <button
-                  onClick={handleDownload}
-                  className="px-3 py-1 bg-green-500 text-white rounded hover:bg-green-600"
-                >
-                  Download
-                </button>
-                <button
-                  onClick={() => {
-                    if (selectedConversion.id) handleDelete(selectedConversion.id);
-                  }}
-                  disabled={isDeleting}
-                  className="px-3 py-1 bg-red-500 text-white rounded hover:bg-red-600 disabled:bg-red-300"
-                >
-                  {isDeleting ? "Deleting..." : "Delete"}
-                </button>
+              
+              <div className="flex gap-2">
+                <div className="inline-flex rounded-md shadow-sm" role="group">
+                  <button
+                    type="button"
+                    onClick={() => setDisplayMode('pdf')}
+                    className={`inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-l-md ${
+                      displayMode === 'pdf'
+                        ? 'bg-blue-50 text-blue-700 border border-blue-300'
+                        : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    PDF Content
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() => setDisplayMode('xml')}
+                    className={`inline-flex items-center px-3 py-1.5 text-sm font-medium rounded-r-md ${
+                      displayMode === 'xml'
+                        ? 'bg-blue-50 text-blue-700 border border-blue-300'
+                        : 'bg-white text-gray-700 border border-gray-300 hover:bg-gray-50'
+                    }`}
+                  >
+                    XML Markup
+                  </button>
+                </div>
+                
+                <div className="space-x-2">
+                  <button
+                    onClick={handleCopy}
+                    className="px-3 py-1.5 bg-blue-500 text-white rounded hover:bg-blue-600 text-sm"
+                  >
+                    Copy
+                  </button>
+                  <button
+                    onClick={handleDownload}
+                    className="px-3 py-1.5 bg-green-500 text-white rounded hover:bg-green-600 text-sm"
+                  >
+                    Download
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (selectedConversion.id) handleDelete(selectedConversion.id);
+                    }}
+                    disabled={isDeleting}
+                    className="px-3 py-1.5 bg-red-500 text-white rounded hover:bg-red-600 disabled:bg-red-300 text-sm"
+                  >
+                    {isDeleting ? "Deleting..." : "Delete"}
+                  </button>
+                </div>
               </div>
             </div>
+            
             <div className="p-4">
-              <pre className="bg-gray-50 p-4 rounded overflow-x-auto text-sm max-h-96">
-                {selectedConversion.xmlContent}
-              </pre>
+              {displayMode === 'xml' ? (
+                <pre className="bg-gray-50 p-4 rounded overflow-x-auto text-sm max-h-96 font-mono">
+                  {formatXml(selectedConversion.xmlContent)}
+                </pre>
+              ) : (
+                <pre className="bg-gray-50 p-4 rounded overflow-x-auto text-sm max-h-96">
+                  {extractPdfContent(parsedXml)}
+                </pre>
+              )}
             </div>
           </div>
         ) : (
