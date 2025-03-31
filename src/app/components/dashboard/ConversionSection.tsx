@@ -132,6 +132,7 @@ export default function ConversionSection({ onConversionComplete }: ConversionSe
         </button>
       </div>
       
+
       {currentConversion && (
         <div className="bg-white rounded-lg shadow-md overflow-hidden">
           <div className="p-4 border-b flex justify-between items-center">

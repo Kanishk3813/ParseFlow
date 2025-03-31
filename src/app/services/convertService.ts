@@ -42,56 +42,108 @@ export const convertPdfToXml = async (file: File): Promise<string> => {
     const info = metadata.info || {};
     
     const numPages = pdf.numPages;
-    let allPageTexts = [];
+    let allPageContents = [];
     
     for (let i = 1; i <= numPages; i++) {
       const page = await pdf.getPage(i);
       const textContent = await page.getTextContent();
       
-      let lastY: number | null = null;
-      let textItems: any[] = [];
-      let currentLine: string[] = [];
+      const viewport = page.getViewport({ scale: 1.0 });
       
-      textContent.items.forEach((item: any) => {
-        if (lastY !== null && Math.abs(lastY - item.transform[5]) > 5) {
-          if (currentLine.length > 0) {
-            textItems.push(currentLine.join(' '));
-            currentLine = [];
-          }
-          
-          if (Math.abs(lastY - item.transform[5]) > 12) {
-            textItems.push('');
-          }
+      let lastY: number | null = null;
+      let currentParagraph: string[] = [];
+      let paragraphs: string[] = [];
+      let headers: { text: string, level: number }[] = [];
+      
+      const sortedItems = textContent.items.sort((a: any, b: any) => 
+        b.transform[5] - a.transform[5]
+      );
+      
+      const fontSizes = sortedItems
+        .map((item: any) => item.height || 0)
+        .filter((size: number) => size > 0);
+      
+      const avgFontSize = fontSizes.reduce((sum: number, size: number) => sum + size, 0) / 
+        (fontSizes.length || 1);
+      
+      for (let j = 0; j < sortedItems.length; j++) {
+        const item: any = sortedItems[j];
+        const fontSize = item.height || 0;
+        const text = item.str.trim();
+        
+        if (!text) continue;
+        
+        const isHeader = fontSize > avgFontSize * 1.2;
+        
+        const isNewParagraph = lastY !== null && 
+          Math.abs(lastY - item.transform[5]) > 12;
+        
+        if (isNewParagraph && currentParagraph.length > 0) {
+          paragraphs.push(currentParagraph.join(' '));
+          currentParagraph = [];
         }
         
-        currentLine.push(item.str);
+        if (isHeader) {
+          const level = fontSize > avgFontSize * 1.5 ? 1 : 
+                         fontSize > avgFontSize * 1.3 ? 2 : 3;
+                         
+          headers.push({ text, level });
+        } else {
+          currentParagraph.push(text);
+        }
+        
         lastY = item.transform[5];
-      });
-      
-      if (currentLine.length > 0) {
-        textItems.push(currentLine.join(' '));
       }
       
-      const pageText = textItems.join('\n');
-      allPageTexts.push(pageText);
+      if (currentParagraph.length > 0) {
+        paragraphs.push(currentParagraph.join(' '));
+      }
+
+      let pageXml = `<page number="${i}">`;
+      
+      if (headers.length > 0) {
+        pageXml += `<headers>`;
+        headers.forEach(header => {
+          pageXml += `<h${header.level}>${escapeXml(header.text)}</h${header.level}>`;
+        });
+        pageXml += `</headers>`;
+      }
+      
+      pageXml += `<paragraphs>`;
+      paragraphs.forEach(paragraph => {
+        pageXml += `<p>${escapeXml(paragraph)}</p>`;
+      });
+      pageXml += `</paragraphs>`;
+      
+      pageXml += `<rawContent><![CDATA[${
+        sortedItems.map((item: any) => item.str).join(' ').replace(/]]>/g, ']]&gt;')
+      }]]></rawContent>`;
+      
+      pageXml += `</page>`;
+      allPageContents.push(pageXml);
     }
     
-    const fullText = allPageTexts.join('\n\n--- Page Break ---\n\n');
-    
-    const safeText = fullText.replace(/]]>/g, ']]&gt;');
+    function escapeXml(unsafe: string): string {
+      return unsafe
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        .replace(/"/g, '&quot;')
+        .replace(/'/g, '&apos;');
+    }
     
     const xml = `<?xml version="1.0" encoding="UTF-8"?>
 <document>
   <info>
-    <filename>${file.name}</filename>
+    <filename>${escapeXml(file.name)}</filename>
     <filesize>${file.size} bytes</filesize>
     <pages>${numPages}</pages>
-    <author>${info.Author || 'Unknown'}</author>
-    <creator>${info.Creator || 'Unknown'}</creator>
-    <producer>${info.Producer || 'Unknown'}</producer>
+    <author>${escapeXml(info.Author || 'Unknown')}</author>
+    <creator>${escapeXml(info.Creator || 'Unknown')}</creator>
+    <producer>${escapeXml(info.Producer || 'Unknown')}</producer>
   </info>
   <content>
-    <text><![CDATA[${safeText}]]></text>
+    ${allPageContents.join('\n')}
   </content>
 </document>`;
     

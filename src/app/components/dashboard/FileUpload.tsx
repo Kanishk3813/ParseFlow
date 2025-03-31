@@ -1,8 +1,9 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useRef } from "react";
 import { useAuth } from "../../context/AuthContext";
 import { convertPdfToXml, saveConversion } from "../../services/convertService";
+import { motion } from "framer-motion";
 
 interface FileUploadProps {
   onConversionComplete: () => void;
@@ -13,6 +14,7 @@ export default function FileUpload({ onConversionComplete }: FileUploadProps) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [progress, setProgress] = useState(0);
+  const fileInputRef = useRef<HTMLInputElement>(null);
   const { user } = useAuth();
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -52,74 +54,167 @@ export default function FileUpload({ onConversionComplete }: FileUploadProps) {
       
       setProgress(100);
       setFile(null);
-      onConversionComplete();
+      
+      // Reset file input
+      if (fileInputRef.current) {
+        fileInputRef.current.value = "";
+      }
+      
+      // Notify parent component of completion
+      setTimeout(() => {
+        onConversionComplete();
+      }, 800); // Delay to show 100% progress
     } catch (error: any) {
       console.error("Conversion error:", error);
       setError(error.message || "Conversion failed. Please try again.");
     } finally {
-      setLoading(false);
+      setTimeout(() => {
+        setLoading(false);
+        setProgress(0);
+      }, 800); // Keep progress bar at 100% briefly
+    }
+  };
+
+  const handleClickUpload = () => {
+    if (fileInputRef.current) {
+      fileInputRef.current.click();
+    }
+  };
+
+  const getFileSize = (size: number): string => {
+    if (size < 1024) {
+      return `${size} bytes`;
+    } else if (size < 1048576) {
+      return `${(size / 1024).toFixed(2)} KB`;
+    } else {
+      return `${(size / 1048576).toFixed(2)} MB`;
     }
   };
 
   return (
-    <div className="bg-white p-6 rounded-lg shadow-md">
-      <h2 className="text-xl font-bold mb-4">Convert PDF to XML</h2>
-      
-      {error && (
-        <div className="mb-4 p-3 bg-red-100 text-red-700 rounded">
-          {error}
-        </div>
-      )}
-      
-      <form onSubmit={handleSubmit}>
-        <div className="mb-4">
-          <label className="block text-gray-700 mb-2">
-            Select PDF File
-          </label>
-          <input
-            type="file"
-            accept="application/pdf"
-            onChange={handleFileChange}
-            className="w-full border border-gray-300 p-2 rounded"
-            required
-            disabled={loading}
-          />
-          {file && (
-            <p className="mt-2 text-sm text-gray-600">
-              Selected: {file.name} ({(file.size / 1024).toFixed(2)} KB)
-            </p>
-          )}
-        </div>
+    <motion.div
+      initial={{ opacity: 0, y: 10 }}
+      animate={{ opacity: 1, y: 0 }}
+      transition={{ duration: 0.3 }}
+      className="bg-white rounded-xl shadow-sm border border-gray-100 overflow-hidden"
+    >
+      <form onSubmit={handleSubmit} className="p-6">
+        {error && (
+          <motion.div 
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            className="mb-5 p-4 bg-red-50 border-l-4 border-red-500 text-red-700 rounded"
+          >
+            <div className="flex items-center">
+              <svg className="w-5 h-5 mr-2 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M12 8v4m0 4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+              </svg>
+              <span>{error}</span>
+            </div>
+          </motion.div>
+        )}
+        
+        <input
+          ref={fileInputRef}
+          type="file"
+          accept="application/pdf"
+          onChange={handleFileChange}
+          className="hidden"
+          disabled={loading}
+        />
+        
+        {!file ? (
+          <div 
+            onClick={handleClickUpload}
+            className={`border-2 border-dashed border-gray-300 rounded-lg p-8 text-center cursor-pointer
+                      transition-colors duration-200 hover:border-blue-400 hover:bg-blue-50 ${loading ? 'opacity-50 cursor-not-allowed' : ''}`}
+          >
+            <div className="mx-auto w-14 h-14 mb-4 rounded-full bg-blue-50 flex items-center justify-center">
+              <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M9 19l3 3m0 0l3-3m-3 3V10"></path>
+              </svg>
+            </div>
+            <p className="mb-1 font-medium text-gray-800">Drag and drop your PDF here</p>
+            <p className="text-sm text-gray-500">or click to browse your files</p>
+          </div>
+        ) : (
+          <div className="border border-gray-200 rounded-lg p-5">
+            <div className="flex items-center">
+              <div className="mr-4 p-3 bg-blue-50 rounded-lg">
+                <svg className="w-8 h-8 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"></path>
+                </svg>
+              </div>
+              <div className="flex-1 min-w-0">
+                <h3 className="font-medium text-gray-800 truncate">{file.name}</h3>
+                <p className="text-sm text-gray-500">{getFileSize(file.size)}</p>
+              </div>
+              <button
+                type="button"
+                onClick={() => setFile(null)}
+                className="ml-2 text-gray-400 hover:text-gray-600"
+                disabled={loading}
+              >
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24" xmlns="http://www.w3.org/2000/svg">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M6 18L18 6M6 6l12 12"></path>
+                </svg>
+              </button>
+            </div>
+          </div>
+        )}
         
         {loading && (
-          <div className="mb-4">
-            <div className="w-full bg-gray-200 rounded-full h-2.5">
-              <div 
-                className="bg-blue-600 h-2.5 rounded-full" 
-                style={{ width: `${progress}%` }}
-              ></div>
+          <div className="mt-6">
+            <div className="flex justify-between text-sm text-gray-600 mb-1">
+              <span>Converting PDF to XML...</span>
+              <span>{progress}%</span>
             </div>
-            <p className="text-center mt-2 text-sm text-gray-600">
-              {progress < 30 && "Preparing..."}
-              {progress >= 30 && progress < 70 && "Converting PDF to XML..."}
-              {progress >= 70 && progress < 100 && "Saving conversion..."}
-              {progress === 100 && "Complete!"}
+            <div className="w-full bg-gray-200 rounded-full h-2 overflow-hidden">
+              <motion.div 
+                initial={{ width: "0%" }}
+                animate={{ width: `${progress}%` }}
+                transition={{ duration: 0.3 }}
+                className="bg-blue-600 h-full rounded-full"
+              />
+            </div>
+            <p className="text-center mt-3 text-sm text-gray-500">
+              {progress < 30 && "Preparing document for conversion..."}
+              {progress >= 30 && progress < 70 && "Processing PDF content structure..."}
+              {progress >= 70 && progress < 100 && "Generating and saving XML..."}
+              {progress === 100 && "Conversion complete!"}
             </p>
           </div>
         )}
         
-        <button
+        <motion.button
+          whileHover={{ scale: 1.01 }}
+          whileTap={{ scale: 0.99 }}
           type="submit"
           disabled={!file || loading}
-          className={`w-full py-2 px-4 rounded focus:outline-none ${
+          className={`mt-6 w-full py-3 px-4 rounded-lg focus:outline-none font-medium transition-all duration-200 ${
             !file || loading
-              ? "bg-gray-400 cursor-not-allowed"
-              : "bg-blue-500 hover:bg-blue-600 text-white"
+              ? "bg-gray-200 text-gray-500 cursor-not-allowed"
+              : "bg-gradient-to-r from-blue-500 to-blue-600 text-white shadow-md hover:shadow-lg"
           }`}
         >
-          {loading ? "Converting..." : "Convert to XML"}
-        </button>
+          {loading ? (
+            <span className="flex items-center justify-center">
+              <svg className="animate-spin -ml-1 mr-2 h-4 w-4 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+              </svg>
+              Converting...
+            </span>
+          ) : (
+            "Convert to XML"
+          )}
+        </motion.button>
+        
+        <p className="mt-3 text-xs text-center text-gray-500">
+          Your file will be converted to XML with preserved structure and formatting
+        </p>
       </form>
-    </div>
+    </motion.div>
   );
 }
