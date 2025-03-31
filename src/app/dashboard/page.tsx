@@ -122,11 +122,72 @@ export default function DashboardPage() {
 
             <div className="p-4 overflow-y-auto" style={{ maxHeight: 'calc(100vh - 200px)' }}>
               {activeTab === 'convert' ? (
-                <div className="space-y-4">
-                  <p className="text-gray-600 text-sm">
-                    Upload your PDF file in the main area to convert it to structured XML format.
-                  </p>
-                </div>
+               <div className="space-y-6 px-2">
+               <motion.div 
+                 initial={{ opacity: 0, y: 10 }}
+                 animate={{ opacity: 1, y: 0 }}
+                 className="flex flex-col items-center"
+               >
+                 <div className="mb-5 p-3 bg-gradient-to-br from-blue-100 to-indigo-100 rounded-2xl">
+                   <svg
+                     className="w-10 h-10 text-blue-600"
+                     fill="none"
+                     stroke="currentColor"
+                     viewBox="0 0 24 24"
+                   >
+                     <path
+                       strokeLinecap="round"
+                       strokeLinejoin="round"
+                       strokeWidth="1.5"
+                       d="M9 17v-2m3 2v-4m3 4v-6m2 10H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z"
+                     />
+                   </svg>
+                 </div>
+             
+                 <h3 className="text-lg font-semibold text-gray-800 mb-2">Quick Conversion Guide</h3>
+                 <p className="text-gray-600 text-sm text-center mb-6">
+                   Drag any PDF document to the main area for instant XML conversion while preserving structure.
+                 </p>
+             
+                 <div className="w-full space-y-4">
+                   <div className="flex items-start p-3 bg-gray-50 rounded-lg border border-gray-100">
+                     <div className="flex-shrink-0 mt-0.5 mr-3 text-blue-500">
+                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-8l-4-4m0 0L8 8m4-4v12" />
+                       </svg>
+                     </div>
+                     <div>
+                       <p className="text-sm font-medium text-gray-800">Simple Upload</p>
+                       <p className="text-xs text-gray-500 mt-1">Supported files: PDF (max 50MB)</p>
+                     </div>
+                   </div>
+             
+                   <div className="flex items-start p-3 bg-gray-50 rounded-lg border border-gray-100">
+                     <div className="flex-shrink-0 mt-0.5 mr-3 text-blue-500">
+                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M13 10V3L4 14h7v7l9-11h-7z" />
+                       </svg>
+                     </div>
+                     <div>
+                       <p className="text-sm font-medium text-gray-800">Instant Processing</p>
+                       <p className="text-xs text-gray-500 mt-1">Typical conversion time: &lt;5s</p>
+                     </div>
+                   </div>
+             
+                   <div className="flex items-start p-3 bg-gray-50 rounded-lg border border-gray-100">
+                     <div className="flex-shrink-0 mt-0.5 mr-3 text-blue-500">
+                       <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth="1.5" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+                       </svg>
+                     </div>
+                     <div>
+                       <p className="text-sm font-medium text-gray-800">Secure Handling</p>
+                       <p className="text-xs text-gray-500 mt-1">Files deleted automatically after 24h</p>
+                     </div>
+                   </div>
+                 </div>
+               </motion.div>
+             </div>
               ) : (
                 <div className="space-y-4">
                   <h3 className="font-medium text-gray-700">Recent Conversions</h3>
