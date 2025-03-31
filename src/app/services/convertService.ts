@@ -284,7 +284,6 @@ export const convertPdfToXml = async (file: File): Promise<string> => {
   }
 };
 
-// Helper function to export the full XML to a file
 export const downloadXmlFile = (xmlContent: string, fileName: string): void => {
   const blob = new Blob([xmlContent], { type: 'application/xml' });
   const url = URL.createObjectURL(blob);
@@ -295,14 +294,12 @@ export const downloadXmlFile = (xmlContent: string, fileName: string): void => {
   document.body.appendChild(a);
   a.click();
   
-  // Clean up
   setTimeout(() => {
     document.body.removeChild(a);
     URL.revokeObjectURL(url);
   }, 0);
 };
 
-// Helper function to copy full XML to clipboard
 export const copyXmlToClipboard = async (xmlContent: string): Promise<boolean> => {
   try {
     await navigator.clipboard.writeText(xmlContent);

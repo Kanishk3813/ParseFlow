@@ -7,7 +7,7 @@ import { AuthProvider } from "./context/AuthContext";
 const inter = Inter({ subsets: ["latin"] });
 
 export const metadata: Metadata = {
-  title: "PDF to XML Converter",
+  title: "ParseFlow",
   description: "Convert PDF documents to XML format while preserving structure",
 };
 
