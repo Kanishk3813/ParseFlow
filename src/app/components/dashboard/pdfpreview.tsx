@@ -1,8 +1,8 @@
 // src/components/PdfPreview.tsx
 "use client";
 
-import React, { useEffect, useRef, useState } from 'react';
-import pdfjs from 'pdfjs-dist';
+import React, { useEffect, useRef, useState } from "react";
+import pdfjs from "pdfjs-dist";
 
 pdfjs.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjs.version}/pdf.worker.min.js`;
 
@@ -20,13 +20,13 @@ export default function PdfPreview({ file, scale = 1.5 }: PdfPreviewProps) {
   useEffect(() => {
     const loadPdf = async () => {
       let pdfData;
-      if (typeof file === 'string') {
+      if (typeof file === "string") {
         pdfData = await pdfjs.getDocument(file).promise;
       } else {
         const arrayBuffer = await file.arrayBuffer();
         pdfData = await pdfjs.getDocument(arrayBuffer).promise;
       }
-      
+
       setPdf(pdfData);
       setNumPages(pdfData.numPages);
     };
@@ -41,14 +41,14 @@ export default function PdfPreview({ file, scale = 1.5 }: PdfPreviewProps) {
       const page = await pdf.getPage(currentPage);
       const viewport = page.getViewport({ scale });
       const canvas = canvasRef.current;
-      const context = canvas.getContext('2d');
+      const context = canvas.getContext("2d");
 
       canvas.height = viewport.height;
       canvas.width = viewport.width;
 
       const renderContext = {
         canvasContext: context!,
-        viewport: viewport
+        viewport: viewport,
       };
 
       await page.render(renderContext).promise;
@@ -60,22 +60,22 @@ export default function PdfPreview({ file, scale = 1.5 }: PdfPreviewProps) {
   return (
     <div className="bg-gray-50 rounded-lg p-4 border border-gray-200">
       <canvas ref={canvasRef} className="mb-4 mx-auto shadow-sm" />
-      
+
       <div className="flex items-center justify-between">
         <button
-          onClick={() => setCurrentPage(p => Math.max(1, p - 1))}
+          onClick={() => setCurrentPage((p) => Math.max(1, p - 1))}
           disabled={currentPage === 1}
           className="px-3 py-1 bg-white border rounded hover:bg-gray-50 disabled:opacity-50"
         >
           Previous
         </button>
-        
+
         <span className="text-sm text-gray-600">
           Page {currentPage} of {numPages}
         </span>
 
         <button
-          onClick={() => setCurrentPage(p => Math.min(numPages, p + 1))}
+          onClick={() => setCurrentPage((p) => Math.min(numPages, p + 1))}
           disabled={currentPage === numPages}
           className="px-3 py-1 bg-white border rounded hover:bg-gray-50 disabled:opacity-50"
         >

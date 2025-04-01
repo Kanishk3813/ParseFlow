@@ -2,18 +2,18 @@
 import React from "react";
 import { motion, AnimatePresence } from "framer-motion";
 
-const CustomConfirmDialog = ({ 
-  isOpen, 
-  onClose, 
-  onConfirm, 
-  title = "Confirm Action", 
+const CustomConfirmDialog = ({
+  isOpen,
+  onClose,
+  onConfirm,
+  title = "Confirm Action",
   message = "Are you sure you want to continue?",
   confirmText = "Confirm",
   cancelText = "Cancel",
-  danger = false
+  danger = false,
 }) => {
   if (!isOpen) return null;
-  
+
   return (
     <AnimatePresence>
       {isOpen && (
@@ -39,7 +39,7 @@ const CustomConfirmDialog = ({
               <div className="p-6">
                 <h3 className="text-xl font-bold text-gray-800">{title}</h3>
                 <p className="text-gray-600 mt-2">{message}</p>
-                
+
                 <div className="mt-6 flex justify-end space-x-3">
                   <button
                     onClick={onClose}
@@ -53,9 +53,10 @@ const CustomConfirmDialog = ({
                       onClose();
                     }}
                     className={`px-4 py-2 text-white rounded-lg font-medium text-sm
-                      ${danger 
-                        ? 'bg-red-500 hover:bg-red-600' 
-                        : 'bg-blue-500 hover:bg-blue-600'
+                      ${
+                        danger
+                          ? "bg-red-500 hover:bg-red-600"
+                          : "bg-blue-500 hover:bg-blue-600"
                       } transition-colors`}
                   >
                     {confirmText}

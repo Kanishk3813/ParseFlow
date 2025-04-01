@@ -37,36 +37,32 @@ export default function FileUpload({ onConversionComplete }: FileUploadProps) {
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-  
+
     if (!file || !user) {
       return;
     }
-  
+
     setLoading(true);
     setError("");
     setProgress(10);
-  
+
     try {
       setProgress(30);
-      // Destructure the result to get both xml and pageCount
       const { xml, pageCount } = await convertPdfToXml(file);
-  
+
       setProgress(70);
-      // Pass pageCount as the fourth argument
       await saveConversion(user.uid, file.name, xml, pageCount);
-  
+
       setProgress(100);
       setFile(null);
-  
-      // Reset file input
+
       if (fileInputRef.current) {
         fileInputRef.current.value = "";
       }
-  
-      // Notify parent component of completion
+
       setTimeout(() => {
         onConversionComplete();
-      }, 800); // Delay to show 100% progress
+      }, 800);
     } catch (error: any) {
       console.error("Conversion error:", error);
       setError(error.message || "Conversion failed. Please try again.");
@@ -74,7 +70,7 @@ export default function FileUpload({ onConversionComplete }: FileUploadProps) {
       setTimeout(() => {
         setLoading(false);
         setProgress(0);
-      }, 800); 
+      }, 800);
     }
   };
 

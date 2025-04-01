@@ -22,7 +22,6 @@ export default function Profile() {
       if (!user) return;
 
       try {
-        // Fetch conversions data
         const conversionsQuery = query(
           collection(db, "conversions"),
           where("userId", "==", user.uid)
@@ -30,7 +29,6 @@ export default function Profile() {
         const querySnapshot = await getDocs(conversionsQuery);
         const conversions = querySnapshot.docs.map((doc) => doc.data());
 
-        // Calculate statistics
         const totalConversions = conversions.length;
         const totalPages = conversions.reduce(
           (sum, conv) => sum + (conv.pageCount || 0),
@@ -38,14 +36,15 @@ export default function Profile() {
         );
         const lastConversion =
           conversions.length > 0
-            ? conversions.reduce((latest, conv) =>
-                conv.createdAt.toDate() > latest.createdAt.toDate()
-                  ? conv
-                  : latest
-              ).createdAt.toDate()
+            ? conversions
+                .reduce((latest, conv) =>
+                  conv.createdAt.toDate() > latest.createdAt.toDate()
+                    ? conv
+                    : latest
+                )
+                .createdAt.toDate()
             : undefined;
 
-        // Calculate conversion history
         const dailyCounts = conversions.reduce(
           (acc: { [key: string]: number }, conv) => {
             const date = conv.createdAt.toDate().toISOString().split("T")[0];
