@@ -5,21 +5,53 @@ import { useAuth } from "../../context/AuthContext";
 import { useRouter } from "next/navigation";
 import Header from "../../components/layout/Header";
 import { User, Camera, Loader2, CheckCircle, AlertCircle } from "lucide-react";
+import { Line } from 'react-chartjs-2';
+import {
+  Chart as ChartJS,
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend,
+} from 'chart.js';
+import { collection, query, where, getDocs, orderBy, limit, getDoc, doc } from "firebase/firestore";
+import { db } from "../../firebase/config";
 
-export default function ProfilePage() {
+ChartJS.register(
+  CategoryScale,
+  LinearScale,
+  PointElement,
+  LineElement,
+  Title,
+  Tooltip,
+  Legend
+);
+
+interface ProfileProps {
+  stats?: {
+    totalConversions?: number;
+    totalPages?: number;
+    lastConversion?: Date;
+    conversionHistory?: Array<{ date: string; count: number }>;
+  };
+}
+
+export default function ProfilePage({ stats }: ProfileProps) {
   const { user, loading, updateProfile, updatePassword } = useAuth();
   const router = useRouter();
   const [isLoading, setIsLoading] = useState(false);
   const [success, setSuccess] = useState("");
   const [error, setError] = useState("");
-  
+
   // Form states
   const [displayName, setDisplayName] = useState("");
   const [photoURL, setPhotoURL] = useState("");
   const [currentPassword, setCurrentPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-
+  
   useEffect(() => {
     if (!loading && !user) {
       router.push("/auth");
@@ -86,6 +118,29 @@ export default function ProfilePage() {
     );
   }
 
+  // Success and error notifications
+  const renderNotification = () => {
+    if (success) {
+      return (
+        <div className="flex items-center p-4 mb-4 text-sm text-green-800 border border-green-300 rounded-lg bg-green-50">
+          <CheckCircle className="w-5 h-5 mr-2" />
+          <span>{success}</span>
+        </div>
+      );
+    }
+    
+    if (error) {
+      return (
+        <div className="flex items-center p-4 mb-4 text-sm text-red-800 border border-red-300 rounded-lg bg-red-50">
+          <AlertCircle className="w-5 h-5 mr-2" />
+          <span>{error}</span>
+        </div>
+      );
+    }
+    
+    return null;
+  };
+
   return (
     <div className="min-h-screen bg-gray-50">
       <Header />
@@ -93,19 +148,66 @@ export default function ProfilePage() {
         <div className="max-w-3xl mx-auto">
           <h1 className="text-2xl font-bold text-gray-900 mb-6">Profile Settings</h1>
           
-          {success && (
-            <div className="mb-6 flex items-center p-4 text-sm bg-green-50 border border-green-200 text-green-800 rounded-lg">
-              <CheckCircle size={18} className="mr-2 flex-shrink-0" />
-              <span>{success}</span>
-            </div>
-          )}
+          {renderNotification()}
           
-          {error && (
-            <div className="mb-6 flex items-center p-4 text-sm bg-red-50 border border-red-200 text-red-800 rounded-lg">
-              <AlertCircle size={18} className="mr-2 flex-shrink-0" />
-              <span>{error}</span>
+          {/* Statistics Section */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mb-8">
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <h3 className="text-lg font-semibold mb-4">Conversion Statistics</h3>
+              <dl className="space-y-3">
+                <div>
+                  <dt className="text-sm text-gray-500">Total Conversions</dt>
+                  <dd className="text-2xl font-bold">
+                    {stats?.totalConversions || 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-sm text-gray-500">Pages Processed</dt>
+                  <dd className="text-2xl font-bold">
+                    {stats?.totalPages || 0}
+                  </dd>
+                </div>
+                <div>
+                  <dt className="text-sm text-gray-500">Last Conversion</dt>
+                  <dd className="text-gray-600">
+                    {stats?.lastConversion ? 
+                      new Date(stats.lastConversion).toLocaleDateString() : 
+                      'Never'}
+                  </dd>
+                </div>
+              </dl>
             </div>
-          )}
+
+            <div className="bg-white p-6 rounded-xl shadow-sm border border-gray-100">
+              <h3 className="text-lg font-semibold mb-4">Conversion History</h3>
+              {stats?.conversionHistory && stats.conversionHistory.length > 0 ? (
+                <Line
+                  data={{
+                    labels: stats.conversionHistory.map(d => d.date),
+                    datasets: [{
+                      label: 'Conversions per Day',
+                      data: stats.conversionHistory.map(d => d.count),
+                      borderColor: '#3b82f6',
+                      backgroundColor: 'rgba(59, 130, 246, 0.2)',
+                      tension: 0.1
+                    }]
+                  }}
+                  options={{
+                    responsive: true,
+                    plugins: {
+                      legend: {
+                        position: 'top' as const,
+                      },
+                    },
+                  }}
+                />
+              ) : (
+                <p className="text-gray-500 text-center py-4">
+                  No conversion history available
+                </p>
+              )}
+            </div>
+          </div>
           
           <div className="bg-white rounded-xl shadow-lg overflow-hidden mb-8">
             <div className="p-6">
@@ -263,7 +365,7 @@ export default function ProfilePage() {
             </div>
           </div>
         </div>
-      </main>
+      </main>   
     </div>
   );
 }

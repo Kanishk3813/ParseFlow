@@ -6,6 +6,7 @@ declare module 'pdfjs-dist/webpack' {
     export default pdfjs;
   }
   
+  
 declare module 'pdf-parse' {
     interface PDFInfo {
       Author?: string;
@@ -34,3 +35,4 @@ declare module 'pdf-parse' {
   
     export = pdfParse;
   }
+  

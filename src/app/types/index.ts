@@ -5,5 +5,6 @@ export interface Conversion {
   fileName: string;
   xmlContent: string;
   createdAt: Date;
+  pageCount?: number;
 }
 

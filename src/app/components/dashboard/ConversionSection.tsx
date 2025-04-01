@@ -36,20 +36,23 @@ export default function ConversionSection({ onConversionComplete }: ConversionSe
 
   const handleConvert = async () => {
     if (!file || !user) return;
-
+  
     setLoading(true);
     setError("");
-
+  
     try {
-      const xmlContent = await convertPdfToXml(file);
+      // Get both xml and pageCount from the result
+      const { xml, pageCount } = await convertPdfToXml(file);
       
-      const conversionId = await saveConversion(user.uid, file.name, xmlContent);
+      // Pass the pageCount as the fourth parameter
+      const conversionId = await saveConversion(user.uid, file.name, xml, pageCount);
       
       setCurrentConversion({
         id: conversionId,
         userId: user.uid,
         fileName: file.name,
-        xmlContent,
+        xmlContent: xml,
+        pageCount, // Add pageCount to the current conversion state
         createdAt: new Date(),
       });
       

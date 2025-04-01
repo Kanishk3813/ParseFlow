@@ -1,0 +1,59 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<xs:schema xmlns:xs="http://www.w3.org/2001/XMLSchema">
+
+  <!-- Root element matching your XML structure -->
+  <xs:element name="document">
+    <xs:complexType>
+      <xs:sequence>
+        <xs:element name="info" type="infoType"/>
+        <xs:element name="content" type="contentType"/>
+      </xs:sequence>
+    </xs:complexType>
+  </xs:element>
+
+  <!-- Document Metadata -->
+  <xs:complexType name="infoType">
+    <xs:sequence>
+      <xs:element name="filename" type="xs:string"/>
+      <xs:element name="filesize" type="xs:integer"/>
+      <xs:element name="pages" type="xs:integer"/>
+      <xs:element name="author" type="xs:string" minOccurs="0"/>
+      <xs:element name="creator" type="xs:string" minOccurs="0"/>
+      <xs:element name="producer" type="xs:string" minOccurs="0"/>
+      <xs:element name="conversionDate" type="xs:dateTime"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Document Content -->
+  <xs:complexType name="contentType">
+    <xs:sequence>
+      <xs:element name="page" type="pageType" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Page Structure -->
+  <xs:complexType name="pageType">
+    <xs:sequence>
+      <xs:element name="headers" type="headersType" minOccurs="0"/>
+      <xs:element name="paragraphs" type="paragraphsType"/>
+      <xs:element name="rawContent" type="xs:string"/>
+    </xs:sequence>
+    <xs:attribute name="number" type="xs:integer" use="required"/>
+  </xs:complexType>
+
+  <!-- Headers -->
+  <xs:complexType name="headersType">
+    <xs:sequence>
+      <xs:element name="h1" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
+      <xs:element name="h2" type="xs:string" minOccurs="0" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+  <!-- Paragraphs -->
+  <xs:complexType name="paragraphsType">
+    <xs:sequence>
+      <xs:element name="p" type="xs:string" maxOccurs="unbounded"/>
+    </xs:sequence>
+  </xs:complexType>
+
+</xs:schema>

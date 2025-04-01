@@ -3,11 +3,10 @@
 import { collection, addDoc, query, where, getDocs, orderBy, Timestamp, doc, deleteDoc } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { Conversion } from "../types";
+import { validateXmlAgainstXSD } from "./validationService";
 
-// Define type for pdf.js
 let pdfjsLib: any = null;
 
-// Create a declaration for the worker module
 declare module 'pdfjs-dist/build/pdf.worker.entry';
 
 const initPdfjs = async () => {
@@ -18,7 +17,6 @@ const initPdfjs = async () => {
       const pdfjs = await import('pdfjs-dist');
       pdfjsLib = pdfjs;
       
-      // Set worker path using CDN to avoid TypeScript issues
       pdfjsLib.GlobalWorkerOptions.workerSrc = `//cdnjs.cloudflare.com/ajax/libs/pdf.js/${pdfjsLib.version}/pdf.worker.min.js`;
     } catch (error) {
       console.error("Error initializing PDF.js:", error);
@@ -38,7 +36,7 @@ export const deleteConversion = async (conversionId: string): Promise<void> => {
   }
 };
 
-export const convertPdfToXml = async (file: File): Promise<string> => {
+export async function convertPdfToXml(file: File, xsdSchema?: string) {
   try {
     const pdfjs = await initPdfjs();
     if (!pdfjs) {
@@ -276,8 +274,20 @@ export const convertPdfToXml = async (file: File): Promise<string> => {
     ${allPageContents.join('\n    ')}
   </content>
 </document>`;
-    
-    return xml;
+
+    if (xsdSchema) {
+      // Use the 'xml' variable instead of 'xmlContent'
+      const validation = await validateXmlAgainstXSD(xml, xsdSchema);
+      if (!validation.isValid) {
+        throw new Error(
+          `XML validation failed: ${validation.errors.join(', ')}\n` +
+          `Schema used: ${xsdSchema}`
+        );
+      }
+    }
+
+    // Return both the XML and the page count
+    return { xml, pageCount: numPages };
   } catch (error) {
     console.error("Error parsing PDF:", error);
     throw new Error("Failed to parse PDF. Please try again with a different file.");
@@ -313,13 +323,15 @@ export const copyXmlToClipboard = async (xmlContent: string): Promise<boolean> =
 export const saveConversion = async (
   userId: string,
   fileName: string,
-  xmlContent: string
+  xmlContent: string,
+  pageCount: number
 ): Promise<string> => {
   try {
     const conversionData: Conversion = {
       userId,
       fileName,
       xmlContent,
+      pageCount,
       createdAt: new Date(),
     };
 
@@ -353,6 +365,7 @@ export const getUserConversions = async (userId: string): Promise<Conversion[]> 
         userId: data.userId,
         fileName: data.fileName,
         xmlContent: data.xmlContent,
+        pageCount: data.pageCount || 0,
         createdAt: data.createdAt.toDate(),
       });
     });

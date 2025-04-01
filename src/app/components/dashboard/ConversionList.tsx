@@ -19,6 +19,7 @@ export default function ConversionList({
   const [loading, setLoading] = useState(true);
   const [copySuccess, setCopySuccess] = useState<string | null>(null);
   const { user } = useAuth();
+  const [selectedSchema, setSelectedSchema] = useState('basic-document');
 
   useEffect(() => {
     const fetchConversions = async () => {
