@@ -3,7 +3,6 @@
 import { collection, addDoc, query, where, getDocs, orderBy, Timestamp, doc, deleteDoc } from "firebase/firestore";
 import { db } from "../firebase/config";
 import { Conversion } from "../types";
-import { validateXmlAgainstXSD } from "./validationService";
 
 let pdfjsLib: any = null;
 
@@ -275,18 +274,6 @@ export async function convertPdfToXml(file: File, xsdSchema?: string) {
   </content>
 </document>`;
 
-    if (xsdSchema) {
-      // Use the 'xml' variable instead of 'xmlContent'
-      const validation = await validateXmlAgainstXSD(xml, xsdSchema);
-      if (!validation.isValid) {
-        throw new Error(
-          `XML validation failed: ${validation.errors.join(', ')}\n` +
-          `Schema used: ${xsdSchema}`
-        );
-      }
-    }
-
-    // Return both the XML and the page count
     return { xml, pageCount: numPages };
   } catch (error) {
     console.error("Error parsing PDF:", error);
