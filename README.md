@@ -6,7 +6,14 @@
 
 A full-stack web application that converts PDF documents to structured XML while preserving layout and formatting, featuring user authentication, conversion history, and real-time processing.
 
-![Dashboard Preview](/screenshots/dashboard-preview.png)
+<div align="center">
+  <img src="/screenshots/1.png" width="49%" alt="Dashboard Preview" />
+  <img src="/screenshots/2.png" width="49%" alt="Dashboard Preview" />
+  <img src="/screenshots/3.png" width="49%" alt="Dashboard Preview" />
+  <img src="/screenshots/4.png" width="49%" alt="Dashboard Preview" />
+  <img src="/screenshots/5.png" width="49%" alt="Dashboard Preview" />
+  <img src="/screenshots/6.png" width="49%" alt="Dashboard Preview" />
+</div>
 
 ## 🚀 Features
 
