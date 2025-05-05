@@ -1,28 +1,27 @@
 pipeline {
-    agent any
+    agent {
+        docker {
+            image 'node:18-alpine'
+            args '-v /var/run/docker.sock:/var/run/docker.sock -u root'
+        }
+    }
 
     environment {
-        DOCKER_IMAGE = 'kanishk3813/parseflow-app' 
+        DOCKER_IMAGE = 'kanishk3813/parseflow-app'
         DOCKER_TAG = 'latest'
     }
 
     stages {
-        stage('Clone Repo') {
-            steps {
-                git branch: 'main', credentialsId: 'github-credentials', url: 'https://github.com/Kanishk3813/ParseFlow'
-            }
-        }
-
         stage('Install Dependencies') {
             steps {
-                echo 'Installing dependencies...'
+                echo 'Installing project dependencies...'
                 sh 'npm install'
             }
         }
 
         stage('Build') {
             steps {
-                echo 'Building the application...'
+                echo 'Building application...'
                 sh 'npm run build'
             }
         }
@@ -30,7 +29,14 @@ pipeline {
         stage('Test') {
             steps {
                 echo 'Running tests...'
-                sh 'npm test || true' // Skip failing tests for now if none are set up
+                sh 'npm test || true' 
+            }
+        }
+
+        stage('Setup Docker') {
+            steps {
+                echo 'Installing Docker CLI...'
+                sh 'apk add --no-cache docker-cli'
             }
         }
 
@@ -39,18 +45,31 @@ pipeline {
                 withCredentials([usernamePassword(credentialsId: 'dockerhub-credentials', usernameVariable: 'DOCKER_USERNAME', passwordVariable: 'DOCKER_PASSWORD')]) {
                     script {
                         sh """
-                            echo "Logging in to Docker Hub..."
+                            echo "Authenticating with Docker Hub..."
                             echo "$DOCKER_PASSWORD" | docker login -u "$DOCKER_USERNAME" --password-stdin
-
+                            
                             echo "Building Docker image..."
                             docker build -t $DOCKER_IMAGE:$DOCKER_TAG .
-
-                            echo "Pushing Docker image to Docker Hub..."
+                            
+                            echo "Pushing image to registry..."
                             docker push $DOCKER_IMAGE:$DOCKER_TAG
                         """
                     }
                 }
             }
+        }
+    }
+
+    post {
+        always {
+            echo 'Cleaning up workspace...'
+            sh 'docker logout' 
+        }
+        success {
+            echo 'Pipeline completed successfully!'
+        }
+        failure {
+            echo 'Pipeline failed! Check logs for details.'
         }
     }
 }
