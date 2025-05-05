@@ -1,6 +1,10 @@
 pipeline {
     agent any
 
+    environment {
+        DOCKER_IMAGE = 'kanishk3813/parseflow-app' 
+    }
+
     stages {
         stage('Clone Repo') {
             steps {
@@ -8,27 +12,31 @@ pipeline {
             }
         }
 
-        stage('Build') {
+        stage('Build Docker Image') {
             steps {
-                echo 'Building the application...'
-                // Add your build commands here, e.g.:
-                // sh 'npm install' for Node.js
-                // sh './gradlew build' for Java
+                script {
+                    sh 'docker build -t $DOCKER_IMAGE .'
+                }
             }
         }
 
-        stage('Test') {
+        stage('Docker Login') {
             steps {
-                echo 'Running tests...'
-                // Add your test commands, e.g.:
-                // sh 'npm test'
+                script {
+                    docker.withRegistry('', 'dockerhub-credentials') {
+                        echo 'Logged into DockerHub'
+                    }
+                }
             }
         }
 
-        stage('Deploy') {
+        stage('Push Docker Image') {
             steps {
-                echo 'Deploying the application...'
-                // Add your deploy steps
+                script {
+                    docker.withRegistry('', 'dockerhub-credentials') {
+                        sh "docker push $DOCKER_IMAGE"
+                    }
+                }
             }
         }
     }
