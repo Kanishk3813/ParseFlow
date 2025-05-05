@@ -9,7 +9,7 @@ pipeline {
     stages {
         stage('Clone Repo') {
             steps {
-                git credentialsId: 'github-credentials', url: 'https://github.com/Kanishk3813/ParseFlow'
+                git branch: 'main', credentialsId: 'github-credentials', url: 'https://github.com/Kanishk3813/ParseFlow'
             }
         }
 
